@@ -1,4 +1,5 @@
 # War of the Pixels 🎨⚔️
+<img width="1238" height="676" alt="Screenshot 2026-01-14 223206" src="https://github.com/user-attachments/assets/82877bcc-c27d-43f5-a3c7-1a4341056a83" />
 
 A real-time multiplayer pixel canvas game demonstrating **Event-Driven Architecture** with:
 - **Spring Boot** - Enterprise Java backend
