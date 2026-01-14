@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "pixel-war": {
+      "command": "node",
+      "args": ["C:/Projects/war-of-the-pixels/pixel-mcp-server/dist/index.js"],
+      "env": {
+        "REDIS_URL": "rediss://default:YOUR_PASSWORD_HERE@darling-flea-39065.upstash.io:6379"
+      }
+    }
+  }
+}

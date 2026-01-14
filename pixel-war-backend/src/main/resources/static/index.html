@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>⚔️ War of the Pixels</title>
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            color: #fff;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #ff6b6b, #feca57, #48dbfb, #ff9ff3);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .status {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            font-size: 0.9rem;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.connected { background: #2ecc71; }
+        .status-dot.disconnected { background: #e74c3c; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .main-container {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .canvas-container {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        #gameCanvas {
+            border: 3px solid rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            cursor: crosshair;
+            image-rendering: pixelated;
+        }
+
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            width: 280px;
+        }
+
+        .panel {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 15px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .panel h3 {
+            font-size: 1rem;
+            margin-bottom: 12px;
+            color: #feca57;
+        }
+
+        .color-picker {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .color-swatch {
+            width: 35px;
+            height: 35px;
+            border-radius: 8px;
+            cursor: pointer;
+            border: 3px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .color-swatch:hover {
+            transform: scale(1.1);
+        }
+
+        .color-swatch.selected {
+            border-color: #fff;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+        }
+
+        .custom-color {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .custom-color input[type="color"] {
+            width: 50px;
+            height: 35px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .stat-item {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-item.human-stat {
+            background: rgba(46, 204, 113, 0.2);
+            border: 1px solid rgba(46, 204, 113, 0.3);
+        }
+
+        .stat-item.human-stat .stat-value {
+            color: #2ecc71;
+        }
+
+        .stat-item.ai-stat {
+            background: rgba(231, 76, 60, 0.2);
+            border: 1px solid rgba(231, 76, 60, 0.3);
+        }
+
+        .stat-item.ai-stat .stat-value {
+            color: #e74c3c;
+        }
+
+        .battle-status {
+            text-align: center;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 0.95rem;
+        }
+
+        .battle-status.humans-winning {
+            background: rgba(46, 204, 113, 0.3);
+            color: #2ecc71;
+        }
+
+        .battle-status.ai-winning {
+            background: rgba(231, 76, 60, 0.3);
+            color: #e74c3c;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #48dbfb;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .event-log {
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.8rem;
+        }
+
+        .event-item {
+            padding: 5px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .event-color-preview {
+            width: 15px;
+            height: 15px;
+            border-radius: 3px;
+            flex-shrink: 0;
+        }
+
+        .event-item.human { color: #2ecc71; }
+        .event-item.ai { color: #e74c3c; }
+
+        .coordinates {
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.7);
+            margin-top: 10px;
+            text-align: center;
+        }
+
+        footer {
+            margin-top: 20px;
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.5);
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>⚔️ War of the Pixels</h1>
+        <div class="status">
+            <div class="status-indicator">
+                <div class="status-dot" id="connectionStatus"></div>
+                <span id="connectionText">Connecting...</span>
+            </div>
+            <div class="status-indicator">
+                🎮 Humans vs 🤖 AI Agents
+            </div>
+        </div>
+    </header>
+
+    <div class="main-container">
+        <div class="canvas-container">
+            <canvas id="gameCanvas" width="500" height="500"></canvas>
+            <div class="coordinates" id="coordinates">Hover over canvas</div>
+        </div>
+
+        <div class="sidebar">
+            <!-- Color Palette -->
+            <div class="panel">
+                <h3>🎨 Color Palette</h3>
+                <div class="color-picker" id="colorPicker">
+                    <!-- Colors added by JS -->
+                </div>
+                <div class="custom-color">
+                    <input type="color" id="customColor" value="#FF0000">
+                    <span>Custom Color</span>
+                </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="panel">
+                <h3>📊 Battle Stats</h3>
+                <div class="battle-status" id="battleStatus">
+                    ⚖️ Gathering intel...
+                </div>
+                <div class="stats">
+                    <div class="stat-item human-stat">
+                        <div class="stat-value" id="humanMoves">0</div>
+                        <div class="stat-label">🎮 Humans</div>
+                    </div>
+                    <div class="stat-item ai-stat">
+                        <div class="stat-value" id="aiMoves">0</div>
+                        <div class="stat-label">🤖 AI Agents</div>
+                    </div>
+                </div>
+                <div class="stats">
+                    <div class="stat-item">
+                        <div class="stat-value" id="totalPixels">0</div>
+                        <div class="stat-label">Total Pixels</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="yourMoves">0</div>
+                        <div class="stat-label">Your Moves</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Event Log -->
+            <div class="panel">
+                <h3>📜 Live Events</h3>
+                <div class="event-log" id="eventLog">
+                    <div class="event-item">Waiting for events...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        Built with Spring Boot + Redis Streams + MCP | Event-Driven Architecture Demo
+    </footer>
+
+    <script>
+        // ============================================
+        // Configuration
+        // ============================================
+        const CONFIG = {
+            serverUrl: 'http://localhost:8080',
+            pixelSize: 5,  // Canvas scale factor
+            boardSize: 100
+        };
+
+        // ============================================
+        // State
+        // ============================================
+        let selectedColor = '#FF0000';
+        let stompClient = null;
+        let isConnected = false;
+        let stats = {
+            totalPixels: 0,
+            humanMoves: 0,
+            aiMoves: 0,
+            yourMoves: 0
+        };
+
+        // ============================================
+        // Canvas Setup
+        // ============================================
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // ============================================
+        // Color Palette
+        // ============================================
+        const colors = [
+            '#FF0000', '#FF6B6B', '#FF9500', '#FECA57',
+            '#2ECC71', '#48DBFB', '#0066FF', '#9B59B6',
+            '#E91E63', '#000000', '#FFFFFF', '#808080'
+        ];
+
+        const colorPicker = document.getElementById('colorPicker');
+        colors.forEach(color => {
+            const swatch = document.createElement('div');
+            swatch.className = 'color-swatch' + (color === selectedColor ? ' selected' : '');
+            swatch.style.backgroundColor = color;
+            swatch.onclick = () => selectColor(color);
+            colorPicker.appendChild(swatch);
+        });
+
+        function selectColor(color) {
+            selectedColor = color;
+            document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+            event.target.classList.add('selected');
+        }
+
+        document.getElementById('customColor').addEventListener('input', (e) => {
+            selectedColor = e.target.value;
+            document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+        });
+
+        // ============================================
+        // WebSocket Connection
+        // ============================================
+        function connect() {
+            const socket = new SockJS(CONFIG.serverUrl + '/ws');
+            stompClient = Stomp.over(socket);
+            stompClient.debug = null; // Disable debug logs
+
+            stompClient.connect({}, 
+                function(frame) {
+                    console.log('Connected:', frame);
+                    setConnectionStatus(true);
+
+                    // Subscribe to pixel updates
+                    stompClient.subscribe('/topic/board', function(message) {
+                        const event = JSON.parse(message.body);
+                        handlePixelEvent(event);
+                    });
+
+                    // Subscribe to chat/taunts
+                    stompClient.subscribe('/topic/chat', function(message) {
+                        const chat = JSON.parse(message.body);
+                        logEvent(null, `💬 ${chat.source}: ${chat.message}`);
+                    });
+
+                    // Load initial board state
+                    loadBoardState();
+                },
+                function(error) {
+                    console.log('Connection error:', error);
+                    setConnectionStatus(false);
+                    setTimeout(connect, 5000); // Retry
+                }
+            );
+        }
+
+        function setConnectionStatus(connected) {
+            isConnected = connected;
+            const dot = document.getElementById('connectionStatus');
+            const text = document.getElementById('connectionText');
+            
+            dot.className = 'status-dot ' + (connected ? 'connected' : 'disconnected');
+            text.textContent = connected ? 'Connected' : 'Disconnected';
+        }
+
+        // ============================================
+        // Board Management
+        // ============================================
+        async function loadBoardState() {
+            try {
+                const response = await fetch(CONFIG.serverUrl + '/api/board');
+                const data = await response.json();
+                
+                // Draw existing pixels
+                Object.entries(data.pixels).forEach(([coord, color]) => {
+                    const [x, y] = coord.split(',').map(Number);
+                    drawPixel(x, y, color);
+                });
+
+                stats.totalPixels = data.pixelCount;
+                updateStats();
+
+                logEvent(null, `📦 Loaded ${data.pixelCount} existing pixels`);
+            } catch (e) {
+                console.error('Failed to load board state:', e);
+            }
+        }
+
+        function drawPixel(x, y, color) {
+            ctx.fillStyle = color;
+            ctx.fillRect(
+                x * CONFIG.pixelSize, 
+                y * CONFIG.pixelSize, 
+                CONFIG.pixelSize, 
+                CONFIG.pixelSize
+            );
+        }
+
+        function handlePixelEvent(event) {
+            drawPixel(event.x, event.y, event.color);
+            
+            stats.totalPixels++;
+            if (event.source === 'HUMAN') {
+                stats.humanMoves++;
+            } else if (event.source && event.source.startsWith('AI_AGENT')) {
+                stats.aiMoves++;
+            }
+            updateStats();
+
+            logEvent(event);
+        }
+
+        // ============================================
+        // User Interaction
+        // ============================================
+        canvas.addEventListener('mousedown', function(e) {
+            if (!isConnected) {
+                alert('Not connected to server!');
+                return;
+            }
+
+            const rect = canvas.getBoundingClientRect();
+            const x = Math.floor((e.clientX - rect.left) / CONFIG.pixelSize);
+            const y = Math.floor((e.clientY - rect.top) / CONFIG.pixelSize);
+
+            if (x >= 0 && x < CONFIG.boardSize && y >= 0 && y < CONFIG.boardSize) {
+                paintPixel(x, y, selectedColor);
+            }
+        });
+
+        // Drag painting
+        let isPainting = false;
+        canvas.addEventListener('mousedown', () => isPainting = true);
+        canvas.addEventListener('mouseup', () => isPainting = false);
+        canvas.addEventListener('mouseleave', () => isPainting = false);
+        canvas.addEventListener('mousemove', function(e) {
+            const rect = canvas.getBoundingClientRect();
+            const x = Math.floor((e.clientX - rect.left) / CONFIG.pixelSize);
+            const y = Math.floor((e.clientY - rect.top) / CONFIG.pixelSize);
+
+            document.getElementById('coordinates').textContent = `Position: (${x}, ${y})`;
+
+            if (isPainting && isConnected) {
+                paintPixel(x, y, selectedColor);
+            }
+        });
+
+        async function paintPixel(x, y, color) {
+            try {
+                await fetch(CONFIG.serverUrl + '/api/paint', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ x, y, color })
+                });
+                stats.yourMoves++;
+                updateStats();
+            } catch (e) {
+                console.error('Failed to paint:', e);
+            }
+        }
+
+        // ============================================
+        // UI Updates
+        // ============================================
+        function updateStats() {
+            document.getElementById('totalPixels').textContent = stats.totalPixels;
+            document.getElementById('humanMoves').textContent = stats.humanMoves;
+            document.getElementById('aiMoves').textContent = stats.aiMoves;
+            document.getElementById('yourMoves').textContent = stats.yourMoves;
+
+            // Update battle status
+            const battleStatus = document.getElementById('battleStatus');
+            const diff = stats.humanMoves - stats.aiMoves;
+            
+            if (stats.humanMoves === 0 && stats.aiMoves === 0) {
+                battleStatus.textContent = '⚖️ Gathering intel...';
+                battleStatus.className = 'battle-status';
+            } else if (diff > 50) {
+                battleStatus.textContent = '🎮 HUMANS DOMINATING! 🏆';
+                battleStatus.className = 'battle-status humans-winning';
+            } else if (diff > 0) {
+                battleStatus.textContent = '🎮 Humans leading!';
+                battleStatus.className = 'battle-status humans-winning';
+            } else if (diff < -50) {
+                battleStatus.textContent = '🤖 AI TAKEOVER! 💀';
+                battleStatus.className = 'battle-status ai-winning';
+            } else if (diff < 0) {
+                battleStatus.textContent = '🤖 AI agents leading!';
+                battleStatus.className = 'battle-status ai-winning';
+            } else {
+                battleStatus.textContent = '⚔️ TIED! Fight for control!';
+                battleStatus.className = 'battle-status';
+            }
+        }
+
+        function logEvent(event, customMessage = null) {
+            const log = document.getElementById('eventLog');
+            const item = document.createElement('div');
+            
+            if (customMessage) {
+                item.className = 'event-item';
+                item.textContent = customMessage;
+            } else {
+                const isAI = event.source && event.source.startsWith('AI_AGENT');
+                item.className = 'event-item ' + (isAI ? 'ai' : 'human');
+                
+                const colorPreview = document.createElement('div');
+                colorPreview.className = 'event-color-preview';
+                colorPreview.style.backgroundColor = event.color;
+                
+                const text = document.createElement('span');
+                let sourceName = '🎮 HUMAN';
+                if (isAI) {
+                    // Extract agent name: "AI_AGENT:ChaosBot" -> "ChaosBot"
+                    const agentName = event.source.includes(':') 
+                        ? event.source.split(':')[1] 
+                        : 'AI';
+                    sourceName = `🤖 ${agentName}`;
+                }
+                text.textContent = `${sourceName} (${event.x},${event.y})`;
+                
+                item.appendChild(colorPreview);
+                item.appendChild(text);
+            }
+
+            // Remove "waiting" message if present
+            if (log.children.length === 1 && log.children[0].textContent.includes('Waiting')) {
+                log.innerHTML = '';
+            }
+
+            log.insertBefore(item, log.firstChild);
+
+            // Keep only last 50 events
+            while (log.children.length > 50) {
+                log.removeChild(log.lastChild);
+            }
+        }
+
+        // ============================================
+        // Initialize
+        // ============================================
+        connect();
+    </script>
+</body>
+</html>

@@ -1,0 +1,29 @@
+# Environment files
+.env
+.env.local
+
+# Build outputs
+target/
+dist/
+node_modules/
+*.class
+*.jar
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp

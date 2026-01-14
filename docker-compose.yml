@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  # Local Redis for development (optional - use Upstash Redis instead for production)
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+
+  # Redis Commander for debugging (optional)
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    ports:
+      - "8090:8081"
+    environment:
+      REDIS_HOSTS: local:redis:6379
+    depends_on:
+      - redis
+
+volumes:
+  redis-data:
+
+# Note: For local development, update application.properties:
+#   spring.data.redis.host=localhost
+#   spring.data.redis.port=6379
+#   spring.data.redis.ssl.enabled=false
+#   # Remove or comment out username/password for local Redis
